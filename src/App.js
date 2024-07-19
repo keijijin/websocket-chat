@@ -14,7 +14,10 @@ function App() {
   useEffect(() => {
     if (socket) {
       socket.on('message', (data) => {
-        setMessages((prevMessages) => [...prevMessages, data]);
+        // 重複して追加しないようにメッセージが他のユーザーからのものか確認
+        if (data.user !== userName) {
+          setMessages((prevMessages) => [...prevMessages, data]);
+        }
       });
 
       socket.on('connect', () => {
@@ -24,8 +27,15 @@ function App() {
       socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
       });
+
+      // コンポーネントのアンマウント時にクリーンアップ
+      return () => {
+        socket.off('message');
+        socket.off('connect');
+        socket.off('disconnect');
+      };
     }
-  }, [socket]);
+  }, [socket, userName]);
 
   const handleConnect = () => {
     const newSocket = socketIOClient(ENDPOINT, { query: { userName } });
@@ -36,6 +46,7 @@ function App() {
     if (message && socket) {
       const newMessage = { user: userName, message };
       socket.emit('message', newMessage);
+      setMessages((prevMessages) => [...prevMessages, newMessage]); // 自分のメッセージを直接追加
       setMessage('');
     }
   };
@@ -43,32 +54,34 @@ function App() {
   return (
     <div className="App">
       {!socket ? (
-        <div>
+        <div className="connect-container">
           <h2>Enter your chat user name</h2>
           <input
             type="text"
             value={userName}
             onChange={(e) => setUserName(e.target.value)}
+            className="username-input"
           />
-          <button onClick={handleConnect}>Connect</button>
+          <button onClick={handleConnect} className="connect-button">Connect</button>
         </div>
       ) : (
-        <div>
-          <div>
-            <h2>Chat</h2>
-            <div className="chat-container">
-              {messages.map((msg, index) => (
-                <div key={index}><strong>{msg.user}: </strong>{msg.message}</div>
-              ))}
-            </div>
+        <div className="chat-container">
+          <div className="chat-header">Chat</div>
+          <div className="message-list">
+            {messages.map((msg, index) => (
+              <div key={index} className={`message ${msg.user === userName ? 'user' : 'other'}`}>
+                <strong>{msg.user}: </strong>{msg.message}
+              </div>
+            ))}
           </div>
-          <div>
+          <div className="input-container">
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              className="message-input"
             />
-            <button onClick={handleSendMessage}>Send</button>
+            <button onClick={handleSendMessage} className="send-button">Send</button>
           </div>
         </div>
       )}
